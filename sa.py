@@ -2,6 +2,8 @@
 import getpass
 from pathlib import Path
 import os
+import cryptography
+from cryptography.fernet import Fernet
 
 # A program to store passwords securely
 
@@ -9,6 +11,14 @@ import os
 records = []
 # path for file used to store data
 path = Path("psdata.txt")
+# file used to store key (encrypted)
+secret_key = Path("secret_key.txt")
+
+# key used to encrypt key
+my_key = "gAAAAABekoqbTOhRV-7aG_LO9NBvyNWpMCXYaRu3v192q7UOo7LkDs3rwHNF9lLAWFBVpc8hYm_itA6dThFtiekutfZMOV0bFq4Z7yvjSKyEH9SZPq3vbIhMxKStLEBJ7aZErdwkq4TI"
+
+# global keys - initialised but will be changed later
+key = Fernet.generate_key()
 
 # functions
 
@@ -28,12 +38,17 @@ def signup():
             print("Please remember this password as there is NO WAY to access this account without the master password\n")
             break
     print("Welcome {}!\n".format(username))
-    # create file 
-    f = open(path,"w")
-    # write username and password to first line
-    f.write("thisapplication" + "," + username + "," + master + "\n")
+    # generate, encrypt and write key to file
+    key = Fernet.generate_key()
+    print(key)
+    encrypted_key = encrypt_key(key)
+    print(encrypted_key)
+    with open(secret_key, "wb") as f:        
+        f.write(encrypted_key)
+    with open(path, "w") as f:  
+        # write username and password to first line
+        f.write("thisapplication" + "," + username + "," + master + "\n")
     # add record of this account to records
-    # the login details for this program will always be on line 1
     entry = {"account": "thisapplication" , "username": username, "password": master}
     records.append(entry) 
 
@@ -48,7 +63,7 @@ def login():
         else:
             print("Incorrect password entered. Please try again")
 
-# read data out of file into list of dictionaries
+# read data out of file into list of dictionaries. Also read in key
 def read_data():
     with open(path) as f:
         for line in f:
@@ -58,7 +73,10 @@ def read_data():
             new_password = new_line[2][:-1]
             entry = {"account": new_line[0] , "username": new_line[1], "password": new_password}
             records.append(entry)  
-            #print(records)
+    with open(secret_key, "rb") as f:
+        encrypted_key = f.readline()
+        key = decrypt_key(encrypted_key)
+        print(key)
 
 # print entries in data
 def print_data():
@@ -100,13 +118,28 @@ def save():
     for record in records:
         wr.write(record.get("account") + "," + record.get("username") + "," + record.get("password") + "\n")  
 
-''' 
-# encrypt file
-def encrypt_file():
-
+# encrypt file - takes in normal text and returns excrypted text
+def encrypt_text(text):
+    f = Fernet(key)
+    encrypted = f.encrypt(text)
+    return encrypted
 # decrypt file
-def decrypt_file():
-'''
+def decrypt_text(encrypted):
+    f = Fernet(key)
+    decrypted = f.decrypt(encrypted)
+    return decrypted
+
+# encrypt key
+def encrypt_key(text):
+    f = Fernet(my_key)
+    encrypted = f.encrypt(text)
+    return encrypted
+# decrypt key
+def decrypt_key(encrypted):
+    f = Fernet(my_key)
+    decrypted = f.decrypt(encrypted)
+    return decrypted
+
 ##################################################################################
 
 # first time running the program? If yes, then "psdata.txt" exists
@@ -173,7 +206,7 @@ while True:
                 print("Record for '{}' deleted successfully".format(command[1]))
                 break               
     elif command[0] == "deleteaccount":
-        yesorno = input("Are you sure you want to delelte your account? All data will be lost (y/n): ")
+        yesorno = input("Are you sure you want to delete your account? All data will be lost (y/n): ")
         if yesorno == "y":
             os.remove(path)
             print("Account deletion SUCCESSFUL. Program will now terminate")
@@ -183,7 +216,7 @@ while True:
             continue
     elif command[0] == "help":
         print("'records': display all records")
-        print("'add': allows user to add a new record")
+        print("'add': add a new record")
         print("'view [ACCOUNT NAME]': view the record for ACCOUNT NAME")
         print("'edit [ACCOUNT NAME]': edit the record for ACCOUNT NAME")
         print("'delete [ACCOUNT NAME]': delete the record for ACCOUNT NAME")
