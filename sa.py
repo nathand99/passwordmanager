@@ -15,10 +15,11 @@ path = Path("psdata.txt")
 secret_key = Path("secret_key.txt")
 
 # key used to encrypt key
-my_key = "gAAAAABekoqbTOhRV-7aG_LO9NBvyNWpMCXYaRu3v192q7UOo7LkDs3rwHNF9lLAWFBVpc8hYm_itA6dThFtiekutfZMOV0bFq4Z7yvjSKyEH9SZPq3vbIhMxKStLEBJ7aZErdwkq4TI"
+my_key = b'oxAH5eINZEzXSNsfP3PpPyi3Jt92-gwVrVfQHaVlvpA='
+#my_key = str.encode(my_key_str)
 
 # global keys - initialised but will be changed later
-key = Fernet.generate_key()
+#key = b""
 
 # functions
 
@@ -41,13 +42,16 @@ def signup():
     # generate, encrypt and write key to file
     key = Fernet.generate_key()
     print(key)
-    encrypted_key = encrypt_key(key)
-    print(encrypted_key)
+    #encrypted_key = encrypt_key(key)
+    #print(encrypted_key)
     with open(secret_key, "wb") as f:        
-        f.write(encrypted_key)
-    with open(path, "w") as f:  
+        #f.write(encrypted_key)
+        f.write(key)
+    with open(path, "wb") as f:  
         # write username and password to first line
-        f.write("thisapplication" + "," + username + "," + master + "\n")
+        record = "thisapplication" + "," + username + "," + master + "||"
+        encrypted = encrypt_text(record, key)
+        f.write(encrypted)      
     # add record of this account to records
     entry = {"account": "thisapplication" , "username": username, "password": master}
     records.append(entry) 
@@ -63,20 +67,33 @@ def login():
         else:
             print("Incorrect password entered. Please try again")
 
+# read encrypted key from file
+def read_key():
+    with open(secret_key, "rb") as f:
+        #encrypted_key = f.readline()
+        #key = decrypt_key(encrypted_key)
+        key = f.read()
+        print(key)
+        return key
 # read data out of file into list of dictionaries. Also read in key
 def read_data():
-    with open(path) as f:
-        for line in f:
+    key = read_key()
+    with open(path, "rb") as f:
+        data = f.read()
+        string = decrypt_text(data, key)
+        print(string)
+        entries = string.split("||")
+        for entry in entries:
+            if entry == "":
+                break
             # split line from file by separater
-            new_line = line.split(",")
+            new_line = entry.split(",")
+            print(new_line)
+            print(len(new_line))
             # remove newline from end of line (in password)
-            new_password = new_line[2][:-1]
-            entry = {"account": new_line[0] , "username": new_line[1], "password": new_password}
-            records.append(entry)  
-    with open(secret_key, "rb") as f:
-        encrypted_key = f.readline()
-        key = decrypt_key(encrypted_key)
-        print(key)
+            #new_password = new_line[2][:-1]
+            entry = {"account": new_line[0] , "username": new_line[1], "password": new_line[2]}
+            records.append(entry)    
 
 # print entries in data
 def print_data():
@@ -114,21 +131,31 @@ def edit_record(record):
     print_row(record)
 # write records list to file (overwritting contents of file)
 def save():   
-    wr = open(path, 'w')
+    key = read_key()
+    wr = open(path, 'wb')
+    # compile all records into a single string
+    string = ""
     for record in records:
-        wr.write(record.get("account") + "," + record.get("username") + "," + record.get("password") + "\n")  
+        print(record)      
+        string = string + record.get("account") + "," + record.get("username") + "," + record.get("password") + "||"
+    # encrypt and write string to file
+    encrypted = encrypt_text(string, key)
+    wr.write(encrypted)  
 
 # encrypt file - takes in normal text and returns excrypted text
-def encrypt_text(text):
+def encrypt_text(text, key):
     f = Fernet(key)
-    encrypted = f.encrypt(text)
+    # str -> bytes
+    b_text = text.encode()
+    encrypted = f.encrypt(b_text)
     return encrypted
 # decrypt file
-def decrypt_text(encrypted):
+def decrypt_text(encrypted, key):
     f = Fernet(key)
+    print(key)
     decrypted = f.decrypt(encrypted)
-    return decrypted
-
+    s_decrypted = decrypted.decode("utf-8")
+    return s_decrypted
 # encrypt key
 def encrypt_key(text):
     f = Fernet(my_key)
@@ -144,7 +171,6 @@ def decrypt_key(encrypted):
 
 # first time running the program? If yes, then "psdata.txt" exists
 first_time = True
-
 if path.is_file():
     first_time = False
 
