@@ -1,6 +1,8 @@
 import cryptography
 from cryptography.fernet import Fernet
 
+# this file is a test for encrypting keys
+
 my_key = b'oxAH5eINZEzXSNsfP3PpPyi3Jt92-gwVrVfQHaVlvpA='
 
 # encrypt key
